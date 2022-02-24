@@ -1,0 +1,1 @@
+insert into example(example_id, example_property) values (-1, 'important data');
