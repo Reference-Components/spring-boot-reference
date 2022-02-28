@@ -40,7 +40,7 @@ public class UserDetailServiceImpl implements UserDetailsService {
   private void loadCredentials() throws IOException {
     // Use Jackson for mapping YAML into Credential list
     ObjectMapper objectMapper = new ObjectMapper(new YAMLFactory());
-    List<Credential> credentials = Arrays.asList(objectMapper.readValue(localCredentialsResource.getFile(), Credential[].class));
+    List<Credential> credentials = Arrays.asList(objectMapper.readValue(localCredentialsResource.getInputStream(), Credential[].class));
 
     // Check that credentials does not have multiple users with same username
     long uniqueUsernames = credentials.stream()
