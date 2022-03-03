@@ -2,6 +2,7 @@ package fi.hiq.reference.spring_boot_reference.controller;
 
 import fi.hiq.reference.spring_boot_reference.entity.Example;
 import fi.hiq.reference.spring_boot_reference.service.ExampleService;
+import fi.hiq.reference.spring_boot_reference.util.SecurityContextUtil;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,7 +24,8 @@ public class ExampleController {
 
   @GetMapping("/")
   public ResponseEntity<String> home() {
-    return ResponseEntity.ok("this is response from '/'");
+    return ResponseEntity.ok(
+        String.format("This is response from '/'. Request was made by '%s'.", SecurityContextUtil.getUsernameOfRequestClient()));
   }
 
   @GetMapping("/examples")
