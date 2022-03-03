@@ -48,6 +48,12 @@
       <artifactId>spring-boot-starter-security</artifactId>
     </dependency>
 
+    <!-- <#SECURITY> adds JWT support -->
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-oauth2-jose</artifactId>
+    </dependency>
+
     <!-- <#SELF-MANAGED-CREDENTIALS> used for reading local credentials from .yaml file -->
     <dependency>
       <groupId>com.fasterxml.jackson.dataformat</groupId>
