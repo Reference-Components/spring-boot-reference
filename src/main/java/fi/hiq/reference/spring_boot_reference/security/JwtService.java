@@ -7,6 +7,7 @@ import com.nimbusds.jose.proc.SimpleSecurityContext;
 import com.nimbusds.jwt.EncryptedJWT;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.proc.JWTProcessor;
+import fi.hiq.reference.spring_boot_reference.service.ClockService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -30,6 +31,8 @@ public final class JwtService {
   private DirectEncrypter directEncrypter;
   @Resource
   private JWTProcessor<SimpleSecurityContext> jwtProcessor;
+  @Resource
+  private ClockService clockService;
 
   private static final String PASSWORD_CLAIM = "pss";
 
@@ -64,16 +67,14 @@ public final class JwtService {
     return (username.equals(userDetails.getUsername()) && isTokenTimeframeValid(token));
   }
 
-  private boolean isTokenTimeframeValid(String token) {
-    return !isTokenExpired(token) && !isTokenStartTimeInTheFuture(token);
+  boolean isTokenExpired(String token) {
+    final Date expirationTime = getClaimFromToken(token, JWTClaimsSet::getExpirationTime);
+    // JWT times are stored in seconds, rounded down
+    final Date now = new Date(clockService.nowDate().getTime() / 1000 * 1000);
+    return expirationTime == null || expirationTime.before(now);
   }
 
-  private <T> T getClaimFromToken(String token, Function<JWTClaimsSet, T> claimsResolver) {
-    final JWTClaimsSet claims = getAllClaimsFromToken(token);
-    return claimsResolver.apply(claims);
-  }
-
-  private JWTClaimsSet getAllClaimsFromToken(String token) {
+  JWTClaimsSet getAllClaimsFromToken(String token) {
     try {
       return jwtProcessor.process(token, null);
     } catch (ParseException | BadJOSEException | JOSEException e) {
@@ -81,31 +82,32 @@ public final class JwtService {
     }
   }
 
-  private boolean isTokenExpired(String token) {
-    final Date expirationTime = getClaimFromToken(token, JWTClaimsSet::getExpirationTime);
-    return expirationTime.before(new Date());
-  }
-
-  private boolean isTokenStartTimeInTheFuture(String token) {
-    final Date now = new Date();
+  boolean isTokenStartTimeInTheFuture(String token) {
+    // JWT times are stored in seconds, rounded down
+    final Date now = new Date(clockService.nowDate().getTime() / 1000 * 1000);
     final Date issueTime = getClaimFromToken(token, JWTClaimsSet::getIssueTime);
     final Date notBeforeTime = getClaimFromToken(token, JWTClaimsSet::getNotBeforeTime);
 
     return issueTime.after(now) || notBeforeTime.after(now);
   }
 
-  private String doGenerateToken(Map<String, Object> claims, String subject, byte[] passwordBytes) {
+  <T> T getClaimFromToken(String token, Function<JWTClaimsSet, T> claimsResolver) {
+    final JWTClaimsSet claims = getAllClaimsFromToken(token);
+    return claimsResolver.apply(claims);
+  }
+
+  String doGenerateToken(Map<String, Object> claims, String subject, byte[] passwordBytes) {
     JWTClaimsSet.Builder jwtClaimSetBuilder = new JWTClaimsSet.Builder()
         .claim(PASSWORD_CLAIM, new String(passwordBytes, StandardCharsets.UTF_8));
 
     claims.forEach(jwtClaimSetBuilder::claim);
 
-    final long now = System.currentTimeMillis();
+    final Date now = clockService.nowDate();
     JWTClaimsSet jwtClaimsSet = jwtClaimSetBuilder
         .subject(subject)
-        .notBeforeTime(new Date(now))
-        .issueTime(new Date(now))
-        .expirationTime(new Date(now + jwtValidityHours * 60 * 60 * 1000))
+        .notBeforeTime(now)
+        .issueTime(now)
+        .expirationTime(new Date(now.getTime() + jwtValidityHours * 60 * 60 * 1000))
         .build();
 
     EncryptedJWT jwt = new EncryptedJWT(JwtEncrypter.JWE_HEADER, jwtClaimsSet);
@@ -117,5 +119,9 @@ public final class JwtService {
     }
 
     return jwt.serialize();
+  }
+
+  private boolean isTokenTimeframeValid(String token) {
+    return !isTokenExpired(token) && !isTokenStartTimeInTheFuture(token);
   }
 }
